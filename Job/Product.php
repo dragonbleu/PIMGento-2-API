@@ -23,6 +23,7 @@ use Magento\Staging\Model\VersionManager;
 use Magento\Catalog\Model\Product\Attribute\Backend\Media\ImageEntryConverter;
 use Pimgento\Api\Helper\Authenticator;
 use Pimgento\Api\Helper\Config as ConfigHelper;
+use Pimgento\Api\Helper\Import\Axis as AxisHelper;
 use Pimgento\Api\Helper\Output as OutputHelper;
 use Pimgento\Api\Helper\Store as StoreHelper;
 use Pimgento\Api\Helper\ProductFilters;
@@ -173,6 +174,11 @@ class Product extends Import
     protected $storeHelper;
 
     /**
+     * @var AxisHelper
+     */
+    protected $axisHelper;
+
+    /**
      * Product constructor.
      *
      * @param OutputHelper $outputHelper
@@ -187,6 +193,7 @@ class Product extends Import
      * @param ProductUrlPathGenerator $productUrlPathGenerator
      * @param TypeListInterface $cacheTypeList
      * @param StoreHelper $storeHelper
+     * @param AxisHelper $axisHelper
      * @param array $data
      */
     public function __construct(
@@ -202,6 +209,7 @@ class Product extends Import
         ProductUrlPathGenerator $productUrlPathGenerator,
         TypeListInterface $cacheTypeList,
         StoreHelper $storeHelper,
+        AxisHelper $axisHelper,
         array $data = []
     ) {
         parent::__construct($outputHelper, $eventManager, $authenticator, $data);
@@ -215,6 +223,7 @@ class Product extends Import
         $this->cacheTypeList           = $cacheTypeList;
         $this->storeHelper             = $storeHelper;
         $this->productUrlPathGenerator = $productUrlPathGenerator;
+        $this->axisHelper              = $axisHelper;
     }
 
     /**
@@ -796,6 +805,41 @@ class Product extends Import
                 'updated_in' => new Expr(VersionManager::MAX_VERSION),
             ];
             $connection->update($table, $values, 'created_in = 0 AND updated_in = 0');
+        }
+    }
+
+    /**
+     * Concatenate axis names
+     *
+     * @return void
+     * @throws LocalizedException
+     */
+    public function concatenateAxisNames()
+    {
+        $stores = $this->storeHelper->getAllStores();
+        /** @var AdapterInterface $connection */
+        $connection = $this->entitiesHelper->getConnection();
+        $tmpTable = $this->entitiesHelper->getTableName($this->getCode());
+        $items = $this->axisHelper->getChildrenWithAxis($tmpTable);
+        $nameColumns = $this->axisHelper->getNameColumns($items);
+
+        /** @var int $entityTypeId */
+        foreach ($items as $item) {
+            $toUpdate = [];
+            $axes = explode(',', $item['parent_axis']);
+            foreach ($nameColumns as $nameColumn) {
+                $store = $this->axisHelper->getFirstvalidStoreScope($stores, $nameColumn);
+                if ($store) {
+                    $toUpdate[$nameColumn] = $item[$nameColumn];
+                    foreach ($axes as $axis) {
+                        $attr = $this->entitiesHelper->getAttributeById($axis);
+                        $optionId = $item[$attr['attribute_code']];
+                        $optionValue = $this->axisHelper->getOptionValueById($optionId, $store['store_id']);
+                        $toUpdate[$nameColumn] .= ' - ' . $optionValue;
+                    }
+                }
+            }
+            $connection->update($tmpTable, $toUpdate, ['identifier = ?' => $item['identifier']]);
         }
     }
 
