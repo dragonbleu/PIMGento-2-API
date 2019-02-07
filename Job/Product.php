@@ -835,7 +835,9 @@ class Product extends Import
                         $attr = $this->entitiesHelper->getAttributeById($axis);
                         $optionId = $item[$attr['attribute_code']];
                         $optionValue = $this->axisHelper->getOptionValueById($optionId, $store['store_id']);
-                        $toUpdate[$nameColumn] .= ' - ' . $optionValue;
+                        if ($optionValue) {
+                            $toUpdate[$nameColumn] .= ' - ' . $optionValue;
+                        }
                     }
                 }
             }
