@@ -459,21 +459,10 @@ class Product extends Import
         /** @var string $productModelTable */
         $productModelTable = $this->entitiesHelper->getTable('pimgento_product_model');
 
-        if ($connection->tableColumnExists($productModelTable, 'parent')) {
-            $select = $connection->select()->from(false, [$groupColumn => 'v.parent'])->joinInner(
-                ['v' => $productModelTable],
-                'v.parent IS NOT NULL AND e.' . $groupColumn . ' = v.code',
-                []
-            );
-
-            $connection->query(
-                $connection->updateFromSelect($select, ['e' => $tmpTable])
-            );
-        }
-
         /** @var array $data */
         $data = [
             'identifier'         => 'e.' . $groupColumn,
+            'parent'             => 'v.' . $groupColumn,
             '_children'          => new Expr('GROUP_CONCAT(e.identifier SEPARATOR ",")'),
             '_type_id'           => new Expr('"configurable"'),
             '_options_container' => new Expr('"container1"'),
@@ -571,6 +560,22 @@ class Product extends Import
 
         /** @var string $query */
         $query = $connection->insertFromSelect($configurable, $tmpTable, array_keys($data));
+
+        $connection->query($query);
+
+        $gpData = $data;
+        $gpData['identifier'] = 'v2.parent';
+        $gpData['url_key'] = 'v2.parent';
+
+        /** @var Select $configurable */
+        $gpConfigurable = $connection->select()
+            ->from(['e' => $tmpTable], $gpData)
+            ->joinInner(['v2' => $productModelTable], 'e.' . $groupColumn . ' = v2.code', [])
+            ->joinInner(['v' => $productModelTable], 'v2.' . $groupColumn . ' = v.code', [])
+            ->where('e.' . $groupColumn . ' <> ""')
+            ->group('v2.' . $groupColumn);
+
+        $query = $connection->insertFromSelect($gpConfigurable, $tmpTable, array_keys($gpData));
 
         $connection->query($query);
     }

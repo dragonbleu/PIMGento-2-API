@@ -243,7 +243,7 @@ class FamilyVariant extends Import
         /** @var string $tmpTable */
         $tmpTable = $this->entitiesHelper->getTableName($this->getCode());
         /** @var Select $query */
-        $query = $connection->select()->from(false, ['axis' => 'f._axis'])->joinLeft(
+        $query = $connection->select()->from(false, ['axis' => 'IF(p.parent != \'\', SUBSTRING_INDEX(f._axis, \',\', -1), f._axis)'])->joinLeft(
             ['f' => $tmpTable],
             'p.family_variant = f.code',
             []
