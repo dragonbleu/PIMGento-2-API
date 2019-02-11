@@ -547,6 +547,39 @@ class Entities extends AbstractHelper
     }
 
     /**
+     * Retrieve attribute
+     *
+     * @param int $attributeId
+     *
+     * @return bool|array
+     */
+    public function getAttributeById($attributeId)
+    {
+        /** @var \Magento\Framework\DB\Adapter\AdapterInterface $connection */
+        $connection = $this->connection;
+
+        /** @var array $attribute */
+        $attribute = $connection->fetchRow(
+            $connection->select()
+                ->from(
+                    $this->getTable('eav_attribute'),
+                    [
+                        AttributeInterface::ATTRIBUTE_CODE,
+                        AttributeInterface::BACKEND_TYPE
+                    ]
+                )
+                ->where(AttributeInterface::ATTRIBUTE_ID . ' = ?', $attributeId)
+                ->limit(1)
+        );
+
+        if (empty($attribute)) {
+            return false;
+        }
+
+        return $attribute;
+    }
+
+    /**
      * Retrieve if row id column exists
      *
      * @param string $table
