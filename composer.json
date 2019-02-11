@@ -1,6 +1,6 @@
 {
-  "name": "agencednd/module-pimgento-2-api",
-  "description": "Pimgento module for Magento 2",
+  "name": "dragonbleu/module-pimgento-2-api",
+  "description": "Pimgento module for Magento 2 with Dragon Bleu changes",
   "require": {
     "php": "~5.6.0|~7.0.0|~7.1.0|~7.2.0",
     "magento/framework": ">=100.0.1",
