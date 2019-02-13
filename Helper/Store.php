@@ -7,6 +7,7 @@ use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Api\Data\WebsiteInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\Helper\AbstractHelper;
+use Magento\Store\Model\Website;
 use Pimgento\Api\Helper\Config as ConfigHelper;
 
 /**
@@ -41,6 +42,13 @@ class Store extends AbstractHelper
     protected $serializer;
 
     /**
+     * Filtered channel for store
+     *
+     * @var string $channel
+     */
+    protected $channel;
+
+    /**
      * Store constructor
      *
      * @param Context $context
@@ -59,6 +67,22 @@ class Store extends AbstractHelper
         $this->serializer   = $serializer;
         $this->storeManager = $storeManager;
         $this->configHelper = $configHelper;
+    }
+
+    /**
+     * @param string $channel
+     * @return self
+     */
+    public function setChannel(string $channel)
+    {
+        $this->channel = $channel;
+
+        return $this;
+    }
+
+    public function getChannel(): string
+    {
+        return $this->channel;
     }
 
     /**
@@ -152,6 +176,36 @@ class Store extends AbstractHelper
         }
 
         return $data;
+    }
+
+    /**
+     * @param string $channel
+     * @return int[]
+     */
+    public function getWebsiteCodesByChannel(string $channel): array
+    {
+        $mappings = $this->configHelper->getWebsiteMapping();
+        $onlyChannelMapping = array_filter($mappings, function ($mapping) use ($channel) {
+            return $mapping['channel'] == $channel;
+        });
+        $websiteCodes = array_column($onlyChannelMapping, 'website');
+
+        return $websiteCodes;
+    }
+
+    /**
+     * @param string $channel
+     * @return Website[]
+     */
+    public function getWebsitesByChannel(string $channel): array
+    {
+        $websiteCodes = $this->getWebsiteCodesByChannel($channel);
+
+        $websites = array_map(function ($websiteCode) {
+            return $this->storeManager->getWebsite($websiteCode);
+        }, $websiteCodes);
+
+        return $websites;
     }
 
     /**

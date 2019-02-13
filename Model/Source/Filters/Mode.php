@@ -18,6 +18,7 @@ class Mode implements ArrayInterface
 {
     /** const keys */
     const STANDARD = 'standard';
+    const CHANNEL = 'channel';
     const ADVANCED = 'advanced';
 
     /**
@@ -29,6 +30,7 @@ class Mode implements ArrayInterface
     {
         return [
             self::STANDARD => __('Standard'),
+            self::CHANNEL => __('Channel'),
             self::ADVANCED => __('Advanced'),
         ];
     }

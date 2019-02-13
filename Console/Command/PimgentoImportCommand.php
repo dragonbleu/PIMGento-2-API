@@ -8,7 +8,9 @@ use Magento\Framework\Data\Collection;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
 use Pimgento\Api\Api\ImportRepositoryInterface;
+use Pimgento\Api\Helper\Store;
 use Pimgento\Api\Job\Import;
+use Pimgento\Api\Job\Product;
 use \Symfony\Component\Console\Command\Command;
 use \Symfony\Component\Console\Input\InputInterface;
 use \Symfony\Component\Console\Output\OutputInterface;
@@ -28,17 +30,29 @@ class PimgentoImportCommand extends Command
 {
 
     /**
+     * This constant contains the channel string
+     */
+    const CHANNEL_CODE = 'channel';
+
+    /**
      * This constant contains a string
      *
      * @var string IMPORT_CODE
      */
     const IMPORT_CODE = 'code';
+
     /**
      * This variable contains a State
      *
      * @var State $appState
      */
     protected $appState;
+
+    /**
+     * @var Store
+     */
+    protected $storeHelper;
+
     /**
      * This variable contains a ImportRepositoryInterface
      *
@@ -55,6 +69,7 @@ class PimgentoImportCommand extends Command
      */
     public function __construct(
         ImportRepositoryInterface $importRepository,
+        Store $storeHelper,
         State $appState,
         $name = null
     ) {
@@ -62,6 +77,7 @@ class PimgentoImportCommand extends Command
 
         $this->appState         = $appState;
         $this->importRepository = $importRepository;
+        $this->storeHelper      = $storeHelper;
     }
 
     /**
@@ -71,7 +87,8 @@ class PimgentoImportCommand extends Command
     {
         $this->setName('pimgento:import')
             ->setDescription('Import PIM data to Magento')
-            ->addOption(self::IMPORT_CODE,null,InputOption::VALUE_REQUIRED);
+            ->addOption(self::CHANNEL_CODE, null, InputOption::VALUE_OPTIONAL, 'Channel to import')
+            ->addOption(self::IMPORT_CODE, null, InputOption::VALUE_REQUIRED);
     }
 
     /**
@@ -92,7 +109,16 @@ class PimgentoImportCommand extends Command
         if (!$code) {
             $this->usage($output);
         } else {
-            $this->import($code, $output);
+            if ($code == 'product') {
+                $channel = $input->getOption(self::CHANNEL_CODE);
+                if (!$channel) {
+                    $output->writeln('No channel defined for product import');
+                    return;
+                }
+                $this->import($code, $output, $channel);
+            } else {
+                $this->import($code, $output);
+            }
         }
     }
 
@@ -101,10 +127,11 @@ class PimgentoImportCommand extends Command
      *
      * @param string $code
      * @param OutputInterface $output
+     * @param string|null $channel
      *
      * @return bool
      */
-    protected function import($code, OutputInterface $output)
+    protected function import($code, OutputInterface $output, $channel = null)
     {
         /** @var Import $import */
         $import = $this->importRepository->getByCode($code);
@@ -117,6 +144,9 @@ class PimgentoImportCommand extends Command
         }
 
         try {
+            if ($import instanceof Product) {
+                $this->storeHelper->setChannel($channel);
+            }
             $import->setStep(0);
 
             while ($import->canExecute()) {
