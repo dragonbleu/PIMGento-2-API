@@ -36,21 +36,29 @@ class ProductFilters extends AbstractHelper
     protected $searchBuilder;
 
     /**
+     * @var Store
+     */
+    protected $storeHelper;
+
+    /**
      * ProductFilters constructor
      *
      * @param ConfigHelper $configHelper
      * @param SearchBuilder $searchBuilder
+     * @param Store $storeHelper
      * @param Context $context
      */
     public function __construct(
         ConfigHelper $configHelper,
         SearchBuilder $searchBuilder,
+        Store $storeHelper,
         Context $context
     ) {
         parent::__construct($context);
 
         $this->configHelper = $configHelper;
         $this->searchBuilder = $searchBuilder;
+        $this->storeHelper = $storeHelper;
     }
 
     /**
@@ -65,17 +73,23 @@ class ProductFilters extends AbstractHelper
         if ($mode == Mode::ADVANCED) {
             return $this->configHelper->getAdvancedFilters();
         }
-        $this->addCompletenessFilter();
+        $globalFilter = [];
+        if ($mode == Mode::CHANNEL) {
+            $globalFilter['scope'] = $this->storeHelper->getChannel();
+        } else {
+            $this->addCompletenessFilter();
+        }
         $this->addStatusFilter();
         $this->addFamiliesFilter();
         $this->addUpdatedFilter();
         /** @var array $filters */
         $filters = $this->searchBuilder->getFilters();
-        if (empty($filters)) {
-            return [];
+
+        if (!empty($filters)) {
+            $globalFilter['search'] = $filters;
         }
 
-        return ['search' => $filters];
+        return $globalFilter;
     }
 
     /**

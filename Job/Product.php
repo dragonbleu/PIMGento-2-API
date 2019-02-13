@@ -1138,13 +1138,15 @@ class Product extends Import
         /** @var string $tmpTable */
         $tmpTable = $this->entitiesHelper->getTableName($this->getCode());
         /** @var array $websites */
-        $websites = $this->storeHelper->getStores('website_id');
+        $channel = $this->storeHelper->getChannel();
+        $websites = $this->storeHelper->getWebsitesByChannel($channel);
 
         /**
          * @var int $websiteId
          * @var array $affected
          */
-        foreach ($websites as $websiteId => $affected) {
+        foreach ($websites as $website) {
+            $websiteId = $website->getId();
             if ($websiteId == 0) {
                 continue;
             }

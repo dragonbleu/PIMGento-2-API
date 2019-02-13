@@ -7,6 +7,7 @@ use Magento\Backend\Model\Url;
 use \Magento\Backend\Model\UrlFactory;
 use \Magento\Backend\Block\Template\Context;
 use Pimgento\Api\Api\ImportRepositoryInterface;
+use Pimgento\Api\Model\Source\Filters\Channel;
 
 /**
  * Class Import
@@ -27,6 +28,12 @@ class Import extends Template
      * @var Url $urlModel
      */
     protected $urlModel;
+
+    /**
+     * @var Channel
+     */
+    protected $channelSource;
+
     /**
      * This variable contains an ImportRepositoryInterface
      *
@@ -40,18 +47,26 @@ class Import extends Template
      * @param Context $context
      * @param UrlFactory $backendUrlFactory
      * @param ImportRepositoryInterface $importRepository
+     * @param Channel $channelSource
      * @param array $data
      */
     public function __construct(
         Context $context,
         UrlFactory $backendUrlFactory,
         ImportRepositoryInterface $importRepository,
+        Channel $channelSource,
         $data = []
     ) {
         parent::__construct($context, $data);
 
         $this->urlModel         = $backendUrlFactory->create();
         $this->importRepository = $importRepository;
+        $this->channelSource = $channelSource;
+    }
+
+    public function getChannelRefs()
+    {
+        return $this->channelSource->toOptionArray();
     }
 
     /**

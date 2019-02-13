@@ -12,6 +12,7 @@ define(['jquery'], function ($) {
     return {
         options: {
             type: null,
+            channel: null,
             step: 0,
             runUrl: null,
             console: null,
@@ -21,6 +22,10 @@ define(['jquery'], function ($) {
         init: function (url, console) {
             this.options.runUrl = url;
             this.console = $(console);
+        },
+
+        channel: function (object) {
+            this.options.channel = object.value;
         },
 
         type: function (type, object) {
@@ -62,6 +67,7 @@ define(['jquery'], function ($) {
                     context: this,
                     data: {
                         'code': pimgento.options.type,
+                        'channel': pimgento.options.channel,
                         'step': pimgento.options.step,
                         'identifier': pimgento.options.identifier
                     },

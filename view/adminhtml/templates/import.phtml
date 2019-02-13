@@ -26,6 +26,15 @@
             <?php endforeach; ?>
         </div>
     </div>
+    <div class="pimgento-step">
+        <label for="pim-channel"><?= __('Channel:') ?></label>
+        <select id="pim-channel" name="channel" class="channel" onchange="Pimgento.channel(this)">
+            <option><?= __('-- Select a channel --') ?></option>
+            <?php foreach ($block->getChannelRefs() as $channelRef): ?>
+                <option value="<?= $channelRef['value'] ?>"><?= $channelRef['label'] ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
     <div class="pimgento-step step-last">
         <button type="button" class="primary" onclick="Pimgento.run()">
             <span class="ui-button-text">
