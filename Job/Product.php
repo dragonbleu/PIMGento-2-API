@@ -24,6 +24,7 @@ use Magento\Catalog\Model\Product\Attribute\Backend\Media\ImageEntryConverter;
 use Pimgento\Api\Helper\Authenticator;
 use Pimgento\Api\Helper\Config as ConfigHelper;
 use Pimgento\Api\Helper\Import\Axis as AxisHelper;
+use Pimgento\Api\Helper\Import\UnitConversion as UnitConversionHelper;
 use Pimgento\Api\Helper\Output as OutputHelper;
 use Pimgento\Api\Helper\Store as StoreHelper;
 use Pimgento\Api\Helper\ProductFilters;
@@ -179,6 +180,11 @@ class Product extends Import
     protected $axisHelper;
 
     /**
+     * @var UnitConversionHelper
+     */
+    protected $unitConversionHelper;
+
+    /**
      * Product constructor.
      *
      * @param OutputHelper $outputHelper
@@ -194,6 +200,7 @@ class Product extends Import
      * @param TypeListInterface $cacheTypeList
      * @param StoreHelper $storeHelper
      * @param AxisHelper $axisHelper
+     * @param UnitConversionHelper $unitConversionHelper
      * @param array $data
      */
     public function __construct(
@@ -210,6 +217,7 @@ class Product extends Import
         TypeListInterface $cacheTypeList,
         StoreHelper $storeHelper,
         AxisHelper $axisHelper,
+        UnitConversionHelper $unitConversionHelper,
         array $data = []
     ) {
         parent::__construct($outputHelper, $eventManager, $authenticator, $data);
@@ -224,6 +232,7 @@ class Product extends Import
         $this->storeHelper             = $storeHelper;
         $this->productUrlPathGenerator = $productUrlPathGenerator;
         $this->axisHelper              = $axisHelper;
+        $this->unitConversionHelper = $unitConversionHelper;
     }
 
     /**
@@ -269,6 +278,7 @@ class Product extends Import
          * @var array $product
          */
         foreach ($products as $index => $product) {
+            $this->unitConversionHelper->updateProductUnits($product);
             $this->entitiesHelper->insertDataFromApi($product, $this->getCode());
         }
         if ($index) {
