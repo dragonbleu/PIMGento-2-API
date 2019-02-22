@@ -4,6 +4,7 @@ namespace Pimgento\Api\Job;
 
 use Akeneo\Pim\ApiClient\Pagination\PageInterface;
 use Akeneo\Pim\ApiClient\Pagination\ResourceCursorInterface;
+use Cocur\Slugify\Slugify;
 use Magento\Catalog\Model\Product\Link;
 use Magento\Catalog\Model\ProductLink\Link as ProductLink;
 use Magento\Catalog\Model\Product\Visibility;
@@ -185,6 +186,11 @@ class Product extends Import
     protected $unitConversionHelper;
 
     /**
+     * @var \Cocur\Slugify\Slugify
+     */
+    protected $slugify;
+
+    /**
      * Product constructor.
      *
      * @param OutputHelper $outputHelper
@@ -201,6 +207,7 @@ class Product extends Import
      * @param StoreHelper $storeHelper
      * @param AxisHelper $axisHelper
      * @param UnitConversionHelper $unitConversionHelper
+     * @param Slugify $slugify
      * @param array $data
      */
     public function __construct(
@@ -218,6 +225,7 @@ class Product extends Import
         StoreHelper $storeHelper,
         AxisHelper $axisHelper,
         UnitConversionHelper $unitConversionHelper,
+        Slugify $slugify,
         array $data = []
     ) {
         parent::__construct($outputHelper, $eventManager, $authenticator, $data);
@@ -233,6 +241,7 @@ class Product extends Import
         $this->productUrlPathGenerator = $productUrlPathGenerator;
         $this->axisHelper              = $axisHelper;
         $this->unitConversionHelper = $unitConversionHelper;
+        $this->slugify                 = $slugify;
     }
 
     /**
@@ -844,7 +853,7 @@ class Product extends Import
             $axes = explode(',', $item['parent_axis']);
             foreach ($nameColumns as $nameColumn) {
                 $store = $this->axisHelper->getFirstvalidStoreScope($stores, $nameColumn);
-                if ($store) {
+                if ($store && !empty($item[$nameColumn])) {
                     $toUpdate[$nameColumn] = $item[$nameColumn];
                     foreach ($axes as $axis) {
                         $attr = $this->entitiesHelper->getAttributeById($axis);
@@ -859,6 +868,56 @@ class Product extends Import
             $connection->update($tmpTable, $toUpdate, ['identifier = ?' => $item['identifier']]);
         }
     }
+
+    public function defineUrlKeys()
+    {
+        /** @var AdapterInterface $connection */
+        $connection = $this->entitiesHelper->getConnection();
+        /** @var string $tableName */
+        $tmpTable = $this->entitiesHelper->getTableName($this->getCode());
+        /** @var array $stores */
+        $stores = $this->storeHelper->getStores(['lang']);
+        /** @var bool $isUrlKeyMapped */
+        $isUrlKeyMapped = $this->configHelper->isUrlKeyMapped();
+
+        /**
+         * @var string $local
+         * @var array $affected
+         */
+        foreach ($stores as $local => $affected) {
+            if (!$connection->tableColumnExists($tmpTable, 'name-' . $local)) {
+                continue;
+            }
+            if (!$isUrlKeyMapped && !$connection->tableColumnExists($tmpTable, 'url_key-' . $local)) {
+                $connection->addColumn(
+                    $tmpTable,
+                    'url_key-' . $local,
+                    [
+                        'type' => 'text',
+                        'length' => 255,
+                        'default' => '',
+                        'COMMENT' => ' ',
+                        'nullable' => false
+                    ]
+                );
+
+                $select = $connection->select()->from($tmpTable, ['identifier', 'name-' . $local]);
+                $rows = $connection->fetchAll($select);
+                foreach ($rows as $row) {
+                    $rawName = $row['name-' . $local];
+                    if (!empty($rawName)) {
+                        $slugName = $this->slugify->slugify($rawName);
+                        $connection->update(
+                            $tmpTable,
+                            ['url_key-' . $local => $slugName],
+                            ['identifier = ?' => $row['identifier']]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
 
     /**
      * Set values to attributes

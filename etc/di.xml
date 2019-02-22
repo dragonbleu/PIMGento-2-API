@@ -310,32 +310,32 @@
                         <item name="comment" xsi:type="string">Concatenate axis names</item>
                     </item>
                     <item name="10" xsi:type="array">
+                        <item name="method" xsi:type="string">defineUrlKeys</item>
+                        <item name="comment" xsi:type="string">Define URL Keys</item>
+                    </item>
+                    <item name="11" xsi:type="array">
                         <item name="method" xsi:type="string">setValues</item>
                         <item name="comment" xsi:type="string">Set values to attributes</item>
                     </item>
-                    <item name="11" xsi:type="array">
+                    <item name="12" xsi:type="array">
                         <item name="method" xsi:type="string">linkConfigurable</item>
                         <item name="comment" xsi:type="string">Link configurable with children</item>
                     </item>
-                    <item name="12" xsi:type="array">
+                    <item name="13" xsi:type="array">
                         <item name="method" xsi:type="string">setWebsites</item>
                         <item name="comment" xsi:type="string">Set products to websites</item>
                     </item>
-                    <item name="13" xsi:type="array">
+                    <item name="14" xsi:type="array">
                         <item name="method" xsi:type="string">setCategories</item>
                         <item name="comment" xsi:type="string">Set products to categories</item>
                     </item>
-                    <item name="14" xsi:type="array">
+                    <item name="15" xsi:type="array">
                         <item name="method" xsi:type="string">initStock</item>
                         <item name="comment" xsi:type="string">Init stock</item>
                     </item>
-                    <item name="15" xsi:type="array">
+                    <item name="16" xsi:type="array">
                         <item name="method" xsi:type="string">setRelated</item>
                         <item name="comment" xsi:type="string">Update related, up-sell and cross-sell products</item>
-                    </item>
-                    <item name="16" xsi:type="array">
-                        <item name="method" xsi:type="string">setUrlRewrite</item>
-                        <item name="comment" xsi:type="string">Set Url Rewrite</item>
                     </item>
                     <item name="17" xsi:type="array">
                         <item name="method" xsi:type="string">importMedia</item>

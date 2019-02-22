@@ -73,6 +73,10 @@ class Entities extends AbstractHelper
         'visibility'
     ];
 
+    protected $passIfFilled = [
+        'url_key'
+    ];
+
     /**
      * Entities constructor
      *
@@ -472,7 +476,7 @@ class Entities extends AbstractHelper
             /** @var string $identifier */
             $identifier = $this->getColumnIdentifier($this->getTable($entityTable . '_' . $backendType));
 
-            if ($code == 'status') {
+            if ($import === self::IMPORT_CODE_PRODUCT && $code == 'status') {
                 $value = new Expr(2);
             }
 
@@ -487,7 +491,7 @@ class Entities extends AbstractHelper
                 ]
             );
 
-            if (in_array($code, $this->passIfExists)) {
+            if ($import === self::IMPORT_CODE_PRODUCT && in_array($code, $this->passIfExists)) {
                 $select->where('_is_new = ?', 1);
             }
 
@@ -495,6 +499,21 @@ class Entities extends AbstractHelper
             $columnExists = $connection->tableColumnExists($tableName, $value);
             if ($columnExists && ($import !== self::IMPORT_CODE_PRODUCT || in_array($code, $this->passIfEmpty))) {
                 $select->where(sprintf('TRIM(`%s`) > ?', $value), new Expr('""'));
+            }
+
+            if ($import === self::IMPORT_CODE_PRODUCT && in_array($code, $this->passIfFilled)) {
+                if ($storeId > 0) {
+                    continue;
+                }
+                $select->joinLeft(
+                    ['eva' => $this->getTable($entityTable . '_' . $backendType)],
+                    join(' AND ', [
+                        sprintf('eva.row_id = `%s`.`_entity_id`', $tableName),
+                        'eva.attribute_id = ' . $attribute[AttributeInterface::ATTRIBUTE_ID],
+                        'eva.store_id = 0'
+                    ]),
+                    []
+                )->where('eva.row_id IS NULL');
             }
 
             /** @var string $insert */
