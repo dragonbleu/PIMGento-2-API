@@ -252,7 +252,8 @@ class Product extends Import
     public function createTable()
     {
         /** @var PageInterface $products */
-        $products = $this->akeneoClient->getProductApi()->listPerPage(1);
+        $channel = $this->storeHelper->getChannel();
+        $products = $this->akeneoClient->getProductApi()->listPerPage(1, false, ['scope' => $channel]);
         /** @var array $products */
         $products = $products->getItems();
         if (empty($products)) {
