@@ -869,6 +869,56 @@ class Product extends Import
         }
     }
 
+    public function defineUrlKeys()
+    {
+        /** @var AdapterInterface $connection */
+        $connection = $this->entitiesHelper->getConnection();
+        /** @var string $tableName */
+        $tmpTable = $this->entitiesHelper->getTableName($this->getCode());
+        /** @var array $stores */
+        $stores = $this->storeHelper->getStores(['lang']);
+        /** @var bool $isUrlKeyMapped */
+        $isUrlKeyMapped = $this->configHelper->isUrlKeyMapped();
+
+        /**
+         * @var string $local
+         * @var array $affected
+         */
+        foreach ($stores as $local => $affected) {
+            if (!$connection->tableColumnExists($tmpTable, 'name-' . $local)) {
+                continue;
+            }
+            if (!$isUrlKeyMapped && !$connection->tableColumnExists($tmpTable, 'url_key-' . $local)) {
+                $connection->addColumn(
+                    $tmpTable,
+                    'url_key-' . $local,
+                    [
+                        'type' => 'text',
+                        'length' => 255,
+                        'default' => '',
+                        'COMMENT' => ' ',
+                        'nullable' => false
+                    ]
+                );
+
+                $select = $connection->select()->from($tmpTable, ['identifier', 'name-' . $local]);
+                $rows = $connection->fetchAll($select);
+                foreach ($rows as $row) {
+                    $rawName = $row['name-' . $local];
+                    if (!empty($rawName)) {
+                        $slugName = $this->slugify->slugify($rawName);
+                        $connection->update(
+                            $tmpTable,
+                            ['url_key-' . $local => $slugName],
+                            ['identifier = ?' => $row['identifier']]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+
     /**
      * Set values to attributes
      *
@@ -1427,9 +1477,6 @@ class Product extends Import
          * @var array $affected
          */
         foreach ($stores as $local => $affected) {
-            if (!$connection->tableColumnExists($tmpTable, 'name-' . $local)) {
-                continue;
-            }
             if (!$isUrlKeyMapped && !$connection->tableColumnExists($tmpTable, 'url_key-' . $local)) {
                 $connection->addColumn(
                     $tmpTable,
@@ -1442,20 +1489,7 @@ class Product extends Import
                         'nullable' => false
                     ]
                 );
-
-                $select = $connection->select()->from($tmpTable, ['identifier', 'name-' . $local]);
-                $rows = $connection->fetchAll($select);
-                foreach ($rows as $row) {
-                    $rawName = $row['name-' . $local];
-                    if (!empty($rawName)) {
-                        $slugName = $this->slugify->slugify($rawName);
-                        $connection->update(
-                            $tmpTable,
-                            ['url_key-' . $local => $slugName],
-                            ['identifier = ?' => $row['identifier']]
-                        );
-                    }
-                }
+                $connection->update($tmpTable, ['url_key-' . $local => new Expr('`url_key`')]);
             }
 
             /**
