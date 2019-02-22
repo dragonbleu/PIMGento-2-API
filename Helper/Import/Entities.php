@@ -68,6 +68,11 @@ class Entities extends AbstractHelper
         'price',
     ];
 
+    protected $passIfExists = [
+        'status',
+        'visibility'
+    ];
+
     /**
      * Entities constructor
      *
@@ -467,6 +472,10 @@ class Entities extends AbstractHelper
             /** @var string $identifier */
             $identifier = $this->getColumnIdentifier($this->getTable($entityTable . '_' . $backendType));
 
+            if ($code == 'status') {
+                $value = new Expr(2);
+            }
+
             /** @var \Magento\Framework\DB\Select $select */
             $select = $connection->select()->from(
                 $tableName,
@@ -477,6 +486,10 @@ class Entities extends AbstractHelper
                     'value'        => $value,
                 ]
             );
+
+            if (in_array($code, $this->passIfExists)) {
+                $select->where('_is_new = ?', 1);
+            }
 
             /** @var bool $columnExists */
             $columnExists = $connection->tableColumnExists($tableName, $value);
