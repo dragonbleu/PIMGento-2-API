@@ -9,6 +9,7 @@ use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Store\Model\Website;
 use Pimgento\Api\Helper\Config as ConfigHelper;
+use Magento\Store\Model\ResourceModel\Website as WebsiteResource;
 
 /**
  * Class Authenticator
@@ -40,6 +41,12 @@ class Store extends AbstractHelper
      * @var Serializer $serializer
      */
     protected $serializer;
+    /**
+     * Website Resource Model
+     *
+     * @var WebsiteResource $websiteResource
+     */
+    protected $websiteResource;
 
     /**
      * Filtered channel for store
@@ -51,22 +58,25 @@ class Store extends AbstractHelper
     /**
      * Store constructor
      *
-     * @param Context $context
-     * @param ConfigHelper $configHelper
-     * @param Serializer $serializer
+     * @param Context               $context
+     * @param ConfigHelper          $configHelper
+     * @param Serializer            $serializer
      * @param StoreManagerInterface $storeManager
+     * @param WebsiteResource       $websiteResource
      */
     public function __construct(
         Context $context,
         ConfigHelper $configHelper,
         Serializer $serializer,
-        StoreManagerInterface $storeManager
+        StoreManagerInterface $storeManager,
+        WebsiteResource $websiteResource
     ) {
         parent::__construct($context);
 
-        $this->serializer   = $serializer;
-        $this->storeManager = $storeManager;
-        $this->configHelper = $configHelper;
+        $this->configHelper    = $configHelper;
+        $this->serializer      = $serializer;
+        $this->storeManager    = $storeManager;
+        $this->websiteResource = $websiteResource;
     }
 
     /**
@@ -100,7 +110,8 @@ class Store extends AbstractHelper
 
         /** @var mixed[] $data */
         $data = [];
-
+        /** @var string[] $websiteDefaultStores */
+        $websiteDefaultStores = $this->getWebsiteDefaultStores(true);
         /** @var mixed[] $mapping */
         $mapping = $this->configHelper->getWebsiteMapping();
         /** @var string[] $match */
@@ -120,38 +131,54 @@ class Store extends AbstractHelper
                 continue;
             }
 
-            /** @var Mage_Core_Model_Store[] $store */
+            /** @var string $currency */
+            $currency = $website->getBaseCurrencyCode();
+            /** @var string[] $siblings */
+            $siblings = $website->getStoreIds();
+            /** @var Magento\Store\Model\Store\Interceptor[] $store */
             $stores = $website->getStores();
-            /** @var Mage_Core_Model_Store $store */
+            /** @var Magento\Store\Model\Store\Interceptor $store */
             foreach ($stores as $store) {
-                /** @var array $combine */
+                /** @var int $storeId */
+                $storeId = $store->getId();
+                /** @var string $storeCode */
+                $storeCode = $store->getCode();
+                /** @var string $storeLang */
+                $storeLang = $this->scopeConfig->getValue(\Magento\Directory\Helper\Data::XML_PATH_DEFAULT_LOCALE, \Magento\Store\Model\ScopeInterface::SCOPE_STORE, $storeId);
+                /** @var bool $isDefault */
+                $isDefault = false;
+                if (in_array($storeId, $websiteDefaultStores)) {
+                    $isDefault = true;
+                }
+
+                /** @var mixed[] $combine */
                 $combine = [];
                 /** @var string $key */
                 foreach ($arrayKey as $key) {
                     switch ($key) {
                         case 'store_id':
-                            $combine[] = $store->getId();
+                            $combine[] = $storeId;
                             break;
                         case 'store_code':
-                            $combine[] = $store->getCode();
+                            $combine[] = $storeCode;
                             break;
                         case 'website_id':
-                            $combine[] = $website->getId();
+                            $combine[] = $websiteId;
                             break;
                         case 'website_code':
-                            $combine[] = $website->getCode();
+                            $combine[] = $websiteCode;
                             break;
                         case 'channel_code':
                             $combine[] = $channel;
                             break;
                         case 'lang':
-                            $combine[] = $this->configHelper->getDefaultLocale($store->getId());
+                            $combine[] = $storeLang;
                             break;
                         case 'currency':
-                            $combine[] = $this->configHelper->getDefaultCurrency($store->getId());
+                            $combine[] = $currency;
                             break;
                         default:
-                            $combine[] = $store->getId();
+                            $combine[] = $storeId;
                             break;
                     }
                 }
@@ -164,13 +191,15 @@ class Store extends AbstractHelper
                 }
 
                 $data[$key][] = [
-                    'store_id'     => $store->getId(),
-                    'store_code'   => $store->getCode(),
-                    'website_id'   => $website->getId(),
-                    'website_code' => $website->getCode(),
-                    'channel_code' => $channel,
-                    'lang'         => $this->configHelper->getDefaultLocale($store->getId()),
-                    'currency'     => $this->configHelper->getDefaultCurrency($store->getId()),
+                    'store_id'           => $storeId,
+                    'store_code'         => $storeCode,
+                    'is_website_default' => $isDefault,
+                    'siblings'           => $siblings,
+                    'website_id'         => $websiteId,
+                    'website_code'       => $websiteCode,
+                    'channel_code'       => $channel,
+                    'lang'               => $storeLang,
+                    'currency'           => $currency,
                 ];
             }
         }
@@ -211,12 +240,12 @@ class Store extends AbstractHelper
     /**
      * Retrieve all store combination
      *
-     * @return array
+     * @return mixed[]
      * @throws \Magento\Framework\Exception\LocalizedException
      */
     public function getAllStores()
     {
-        /** @var array $stores */
+        /** @var mixed[] $stores */
         $stores = array_merge(
             $this->getStores(['lang']), // en_US
             $this->getStores(['lang', 'channel_code']), // en_US-channel
@@ -227,6 +256,69 @@ class Store extends AbstractHelper
         );
 
         return $stores;
+    }
+
+    /**
+     * Retrieve needed store ids from website/channel mapping
+     *
+     * @return string[]
+     * @throws Exception
+     */
+    public function getMappedWebsitesStoreIds()
+    {
+        /** @var mixed[] $websites */
+        $websites = $this->getStores('website_code');
+        /** @var string[] $storeIds */
+        $storeIds = [];
+        /** @var mixed[] $website */
+        foreach ($websites as $website) {
+            /** @var string[] $websiteStoreIds */
+            $websiteStoreIds = array_column($website, 'store_id');
+            $storeIds        = array_merge($storeIds, array_diff($websiteStoreIds, $storeIds));
+        }
+
+        return $storeIds;
+    }
+
+    /**
+     * Retrieve needed store languages from website/channel mapping
+     *
+     * @return string[]
+     * @throws Exception
+     */
+    public function getMappedWebsitesStoreLangs()
+    {
+        /** @var mixed[] $websites */
+        $websites = $this->getStores('website_code');
+        /** @var string[] $langs */
+        $langs = [];
+        /** @var mixed[] $website */
+        foreach ($websites as $website) {
+            /** @var string[] $websiteStoreIds */
+            $websiteStoreIds = array_column($website, 'lang');
+            $langs           = array_merge($langs, array_diff($websiteStoreIds, $langs));
+        }
+
+        return $langs;
+    }
+
+    /**
+     * Get websites default stores
+     *
+     * @param bool $withAdmin
+     *
+     * @return string[]
+     */
+    public function getWebsiteDefaultStores($withAdmin = false)
+    {
+        /** @var \Magento\Store\Model\ResourceModel\Website $websiteResource */
+        $websiteResource = $this->websiteResource;
+        /** @var \Magento\Framework\DB\Select $select */
+        $select = $websiteResource->getDefaultStoresSelect($withAdmin);
+        /** @var string[] $websiteDefaultStores */
+        $websiteDefaultStores = $websiteResource->getConnection()->fetchPairs($select);
+
+        return $websiteDefaultStores;
     }
 
     /**

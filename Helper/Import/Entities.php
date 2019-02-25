@@ -67,6 +67,12 @@ class Entities extends AbstractHelper
     protected $passIfEmpty = [
         'price',
     ];
+    /**
+     * Mapped catalog attributes with relative scope
+     *
+     * @var string[] $attributeScopeMapping
+     */
+    protected $attributeScopeMapping = [];
 
     protected $passIfExists = [
         'status',
@@ -609,6 +615,35 @@ class Entities extends AbstractHelper
         }
 
         return $attribute;
+    }
+
+    /**
+     * Retrieve catalog attributes mapped with relative scope
+     *
+     * @return string[]
+     */
+    public function getAttributeScopeMapping()
+    {
+        if (!empty($this->attributeScopeMapping)) {
+            return $this->attributeScopeMapping;
+        }
+
+        /** @var \Magento\Framework\DB\Adapter\AdapterInterface $connection */
+        $connection = $this->connection;
+        /** @var string $catalogAttribute */
+        $catalogAttribute = $this->getTable('catalog_eav_attribute');
+        /** @var string $eavAttribute */
+        $eavAttribute = $this->getTable('eav_attribute');
+        /** @var Select $select */
+        $select = $connection->select()->from(['a' => $eavAttribute], ['attribute_code'])->joinInner(['c' => $catalogAttribute], 'c.attribute_id = a.attribute_id', ['is_global']);
+
+        /** @var string[] $attributeScopes */
+        $attributeScopes = $connection->fetchPairs($select);
+        if (!empty($attributeScopes)) {
+            $this->attributeScopeMapping = $attributeScopes;
+        }
+
+        return $this->attributeScopeMapping;
     }
 
     /**

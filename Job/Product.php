@@ -119,6 +119,13 @@ class Product extends Import
         'groups',
         'parent',
         'enabled',
+        'created',
+        'updated',
+        'associations',
+        'PACK',
+        'SUBSTITUTION',
+        'UPSELL',
+        'X_SELL',
     ];
     /**
      * This variable contains a ProductImportHelper
@@ -508,7 +515,10 @@ class Product extends Import
             }
             /** @var string $associationName */
             foreach ($associationNames as $associationName) {
-                if (!empty($associationName) && $connection->tableColumnExists($productModelTable, $associationName)) {
+                if (!empty($associationName) && $connection->tableColumnExists(
+                        $productModelTable,
+                        $associationName
+                    ) && $connection->tableColumnExists($tmpTable, $associationName)) {
                     $data[$associationName] = sprintf('v.%s', $associationName);
                 }
             }
@@ -711,23 +721,22 @@ class Product extends Import
                 continue;
             }
 
-            /** @var array|string $columnPrefix */
-            $columnPrefix = explode('-', $column);
-            $columnPrefix = reset($columnPrefix);
+            /** @var string[] $columnParts */
+            $columnParts = explode('-', $column, 2);
+            /** @var string $columnPrefix */
+            $columnPrefix = reset($columnParts);
+            $columnPrefix = sprintf('%s_', $columnPrefix);
             /** @var int $prefixLength */
-            $prefixLength = strlen($columnPrefix . '_') + 1;
+            $prefixLength = strlen($columnPrefix) + 1;
             /** @var string $entitiesTable */
             $entitiesTable = $this->entitiesHelper->getTable('pimgento_entities');
 
             // Sub select to increase performance versus FIND_IN_SET
             /** @var Select $subSelect */
-            $subSelect = $connection->select()
-                ->from(
-                    ['c' => $entitiesTable],
-                    ['code' => 'SUBSTRING(`c`.`code`, ' . $prefixLength . ')', 'entity_id' => 'c.entity_id']
-                )
-                ->where('c.code LIKE "' . $columnPrefix . '_%" ')
-                ->where('c.import = ?', 'option');
+            $subSelect = $connection->select()->from(
+                ['c' => $entitiesTable],
+                ['code' => sprintf('SUBSTRING(`c`.`code`, %s)', $prefixLength), 'entity_id' => 'c.entity_id']
+            )->where(sprintf('c.code LIKE "%s%s"', $columnPrefix, '%'))->where('c.import = ?', 'option');
 
             // if no option no need to continue process
             if (!$connection->query($subSelect)->rowCount()) {
@@ -932,11 +941,20 @@ class Product extends Import
         $connection = $this->entitiesHelper->getConnection();
         /** @var string $tmpTable */
         $tmpTable = $this->entitiesHelper->getTableName($this->getCode());
+        /** @var string[] $attributeScopeMapping */
+        $attributeScopeMapping = $this->entitiesHelper->getAttributeScopeMapping();
         /** @var array $stores */
         $stores = $this->storeHelper->getAllStores();
         /** @var string[] $columns */
         $columns = array_keys($connection->describeTable($tmpTable));
-        /** @var array $values */
+
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $helper = $objectManager->get('\Magento\Directory\Helper\Data');
+
+
+        /** @var string $adminBaseCurrency */
+        $adminBaseCurrency = $helper->getBaseCurrencyCode();
+        /** @var mixed[] $values */
         $values = [
             0 => [
                 'options_container' => '_options_container',
@@ -949,7 +967,7 @@ class Product extends Import
             $values[0]['status'] = '_status';
         }
 
-        /** @var array $taxClasses */
+        /** @var mixed[] $taxClasses */
         $taxClasses = $this->configHelper->getProductTaxClasses();
         if (count($taxClasses)) {
             foreach ($taxClasses as $storeId => $taxClassId) {
@@ -959,34 +977,65 @@ class Product extends Import
 
         /** @var string $column */
         foreach ($columns as $column) {
-            if (in_array($column, $this->excludedColumns) || preg_match('/-unit/', $column)) {
+            /** @var string[] $columnParts */
+            $columnParts = explode('-', $column, 2);
+            /** @var string $columnPrefix */
+            $columnPrefix = $columnParts[0];
+
+            if (in_array($columnPrefix, $this->excludedColumns) || preg_match('/-unit/', $column)) {
                 continue;
             }
 
-            /** @var array|string $columnPrefix */
-            $columnPrefix = explode('-', $column);
-            $columnPrefix = reset($columnPrefix);
+            if (!isset($attributeScopeMapping[$columnPrefix])) {
+                // If no scope is found, attribute does not exist
+                continue;
+            }
 
-            /**
-             * @var string $suffix
-             * @var array $affected
-             */
-            foreach ($stores as $suffix => $affected) {
-                if (!preg_match('/^' . $columnPrefix . '-' . $suffix . '$/', $column)) {
+            if (empty($columnParts[1]) && !isset($values[0][$columnPrefix])) {
+                // No channel and no locale found: attribute scope naturally is Global
+                $values[0][$columnPrefix] = $column;
+
+                continue;
+            }
+
+            /** @var int $scope */
+            $scope = (int)$attributeScopeMapping[$columnPrefix];
+            if ($scope === \Magento\Eav\Model\Entity\Attribute\ScopedAttributeInterface::SCOPE_GLOBAL && !empty($columnParts[1]) && $columnParts[1] === $adminBaseCurrency){
+                // This attribute has global scope with a suffix: it is a price with its currency
+                // If Price scope is set to Website, it will be processed afterwards as any website scoped attribute
+                $values[0][$columnPrefix] = $column;
+
+                continue;
+            }
+
+            /** @var string $columnSuffix */
+            $columnSuffix = $columnParts[1];
+            if (!isset($stores[$columnSuffix])) {
+                // No corresponding store found for this suffix
+                continue;
+            }
+
+            /** @var mixed[] $affectedStores */
+            $affectedStores = $stores[$columnSuffix];
+            /** @var mixed[] $store */
+            foreach ($affectedStores as $store) {
+                // Handle website scope
+                if ($scope === \Magento\Eav\Model\Entity\Attribute\ScopedAttributeInterface::SCOPE_WEBSITE && !$store['is_website_default']) {
                     continue;
                 }
 
-                /** @var array $store */
-                foreach ($affected as $store) {
-                    if (!isset($values[$store['store_id']])) {
-                        $values[$store['store_id']] = [];
-                    }
+                if ($scope === \Magento\Eav\Model\Entity\Attribute\ScopedAttributeInterface::SCOPE_STORE || empty($store['siblings'])) {
                     $values[$store['store_id']][$columnPrefix] = $column;
-                }
-            }
 
-            if (!isset($values[0][$columnPrefix])) {
-                $values[0][$columnPrefix] = $column;
+                    continue;
+                }
+
+                /** @var string[] $siblings */
+                $siblings = $store['siblings'];
+                /** @var string $storeId */
+                foreach ($siblings as $storeId) {
+                    $values[$storeId][$columnPrefix] = $column;
+                }
             }
         }
 
@@ -995,7 +1044,7 @@ class Product extends Import
 
         /**
          * @var string $storeId
-         * @var array $data
+         * @var string[] $data
          */
         foreach ($values as $storeId => $data) {
             $this->entitiesHelper->setValues(
@@ -1223,12 +1272,12 @@ class Product extends Import
 
             /** @var Select $select */
             $select = $connection->select()->from(
-                    $tmpTable,
-                    [
-                        'product_id' => '_entity_id',
-                        'website_id' => new Expr($websiteId),
-                    ]
-                );
+                $tmpTable,
+                [
+                    'product_id' => '_entity_id',
+                    'website_id' => new Expr($websiteId),
+                ]
+            );
 
             $connection->query(
                 $connection->insertFromSelect(

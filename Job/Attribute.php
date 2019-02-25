@@ -164,6 +164,8 @@ class Attribute extends Import
          * @var array $attribute
          */
         foreach ($attributes as $index => $attribute) {
+            $attribute['code'] = strtolower($attribute['code']);
+
             $this->entitiesHelper->insertDataFromApi($attribute, $this->getCode());
         }
         $index++;

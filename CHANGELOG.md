@@ -52,3 +52,12 @@ Add configuration to choose to update product URL rewrite or not
 Prevent price from being set to "null" if empty
 
 Add no-whitespace validation to Akeneo API credential fields
+
+### 100.2.2 :
+Fix option import if first attribute has no valid options
+
+Force attribute code to be lowercase
+
+Manage attribute scope on import
+
+Fix SQL error when no association column is found using advanced filter
