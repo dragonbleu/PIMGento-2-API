@@ -126,6 +126,7 @@ class Product extends Import
         'SUBSTITUTION',
         'UPSELL',
         'X_SELL',
+        'url_key'
     ];
     /**
      * This variable contains a ProductImportHelper
@@ -875,7 +876,9 @@ class Product extends Import
                     }
                 }
             }
-            $connection->update($tmpTable, $toUpdate, ['identifier = ?' => $item['identifier']]);
+            if (!empty($toUpdate)) {
+                $connection->update($tmpTable, $toUpdate, ['identifier = ?' => $item['identifier']]);
+            }
         }
     }
 
@@ -887,8 +890,6 @@ class Product extends Import
         $tmpTable = $this->entitiesHelper->getTableName($this->getCode());
         /** @var array $stores */
         $stores = $this->storeHelper->getStores(['lang']);
-        /** @var bool $isUrlKeyMapped */
-        $isUrlKeyMapped = $this->configHelper->isUrlKeyMapped();
 
         /**
          * @var string $local
@@ -898,7 +899,7 @@ class Product extends Import
             if (!$connection->tableColumnExists($tmpTable, 'name-' . $local)) {
                 continue;
             }
-            if (!$isUrlKeyMapped && !$connection->tableColumnExists($tmpTable, 'url_key-' . $local)) {
+            if (!$connection->tableColumnExists($tmpTable, 'url_key-' . $local)) {
                 $connection->addColumn(
                     $tmpTable,
                     'url_key-' . $local,
@@ -910,19 +911,18 @@ class Product extends Import
                         'nullable' => false
                     ]
                 );
-
-                $select = $connection->select()->from($tmpTable, ['identifier', 'name-' . $local]);
-                $rows = $connection->fetchAll($select);
-                foreach ($rows as $row) {
-                    $rawName = $row['name-' . $local];
-                    if (!empty($rawName)) {
-                        $slugName = $this->slugify->slugify($rawName);
-                        $connection->update(
-                            $tmpTable,
-                            ['url_key-' . $local => $slugName],
-                            ['identifier = ?' => $row['identifier']]
-                        );
-                    }
+            }
+            $select = $connection->select()->from($tmpTable, ['identifier', 'name-' . $local]);
+            $rows = $connection->fetchAll($select);
+            foreach ($rows as $row) {
+                $rawName = $row['name-' . $local];
+                if (!empty($rawName)) {
+                    $slugName = $this->slugify->slugify($rawName);
+                    $connection->update(
+                        $tmpTable,
+                        ['url_key-' . $local => $slugName],
+                        ['identifier = ?' => $row['identifier']]
+                    );
                 }
             }
         }
