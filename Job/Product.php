@@ -1332,27 +1332,6 @@ class Product extends Import
                 1
             )
         );
-
-        /** @var Select $selectToDelete */
-        $selectToDelete = $connection->select()
-            ->from(['c' => $this->entitiesHelper->getTable('pimgento_entities')], [])
-            ->joinInner(
-                ['p' => $tmpTable],
-                '!FIND_IN_SET(`c`.`code`, `p`.`categories`) AND `c`.`import` = "category"',
-                [
-                    'category_id' => 'c.entity_id',
-                    'product_id'  => 'p._entity_id',
-                ])
-            ->joinInner(
-                ['e' => $this->entitiesHelper->getTable('catalog_category_entity')],
-                'c.entity_id = e.entity_id',
-                []
-            );
-
-        $connection->delete(
-            $this->entitiesHelper->getTable('catalog_category_product'),
-            '(category_id, product_id) IN (' . $selectToDelete->assemble() . ')'
-        );
     }
 
     /**
