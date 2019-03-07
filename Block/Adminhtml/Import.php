@@ -7,6 +7,7 @@ use Magento\Backend\Model\Url;
 use \Magento\Backend\Model\UrlFactory;
 use \Magento\Backend\Block\Template\Context;
 use Pimgento\Api\Api\ImportRepositoryInterface;
+use Pimgento\Api\Helper\Store as StoreHelper;
 use Pimgento\Api\Model\Source\Filters\Channel;
 
 /**
@@ -33,6 +34,10 @@ class Import extends Template
      * @var Channel
      */
     protected $channelSource;
+    /**
+     * @var StoreHelper
+     */
+    protected $storeHelper;
 
     /**
      * This variable contains an ImportRepositoryInterface
@@ -48,6 +53,7 @@ class Import extends Template
      * @param UrlFactory $backendUrlFactory
      * @param ImportRepositoryInterface $importRepository
      * @param Channel $channelSource
+     * @param StoreHelper $storeHelper
      * @param array $data
      */
     public function __construct(
@@ -55,18 +61,26 @@ class Import extends Template
         UrlFactory $backendUrlFactory,
         ImportRepositoryInterface $importRepository,
         Channel $channelSource,
+        StoreHelper $storeHelper,
         $data = []
     ) {
         parent::__construct($context, $data);
 
         $this->urlModel         = $backendUrlFactory->create();
         $this->importRepository = $importRepository;
-        $this->channelSource = $channelSource;
+        $this->channelSource    = $channelSource;
+        $this->storeHelper      = $storeHelper;
     }
 
     public function getChannelRefs()
     {
-        return $this->channelSource->toOptionArray();
+        $options = [];
+        foreach ($this->channelSource->toOptionArray() as $option) {
+            if (!empty($this->storeHelper->getWebsiteCodesByChannel($option['value']))) {
+                $options[] = $option;
+            }
+        }
+        return $options;
     }
 
     /**
