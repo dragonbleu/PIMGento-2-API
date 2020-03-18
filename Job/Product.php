@@ -553,7 +553,10 @@ class Product extends Import
              * @var string $affected
              */
             foreach ($stores as $local => $affected) {
-                $columns[] = trim($name) . '-' . $local;
+                if($local=='zh_Hans_CN') {
+					$local=='zh_CN';
+				}
+				$columns[] = trim($name) . '-' . $local;
             }
 
             /** @var array $column */
@@ -565,9 +568,9 @@ class Product extends Import
                     }
                 }
 
-                if (!$connection->tableColumnExists($tmpTable, $column)) {
-                    continue;
-                }
+                // if (!$connection->tableColumnExists($tmpTable, $column)) {
+                    // continue;
+                // }
 
                 if (strlen($value) > 0) {
                     $data[$column] = new Expr('"' . $value . '"');
@@ -588,7 +591,7 @@ class Product extends Import
             ->joinInner(['v' => $productModelTable], 'e.' . $groupColumn . ' = v.code', [])
             ->where('e.' . $groupColumn . ' <> ""')
             ->group('e.' . $groupColumn);
-
+				
         /** @var string $query */
         $query = $connection->insertFromSelect($configurable, $tmpTable, array_keys($data));
 
@@ -980,6 +983,7 @@ class Product extends Import
             $columnParts = explode('-', $column, 2);
             /** @var string $columnPrefix */
             $columnPrefix = $columnParts[0];
+			
 
             if (in_array($columnPrefix, $this->excludedColumns) || preg_match('/-unit/', $column)) {
                 continue;
@@ -1009,9 +1013,13 @@ class Product extends Import
 
             /** @var string $columnSuffix */
             $columnSuffix = $columnParts[1];
+			if($columnSuffix=='zh_CN') {
+				$columnSuffix='zh_Hans_CN';
+			}
             if (!isset($stores[$columnSuffix])) {
                 // No corresponding store found for this suffix
-                continue;
+                
+				continue;
             }
 
             /** @var mixed[] $affectedStores */
@@ -1793,12 +1801,17 @@ class Product extends Import
                 $media = $this->akeneoClient->getProductMediaFileApi()->get($row[$image]);
                 /** @var string $name */
                 $name  = basename($media['code']);
-
-                if (!$this->configHelper->mediaFileExists($name)) {
-                    $binary = $this->akeneoClient->getProductMediaFileApi()->download($row[$image]);
-                    $this->configHelper->saveMediaFile($name, $binary);
-                }
-
+				try {
+					$mediaExist = $this->configHelper->mediaFileExists($name);
+				}catch(\Exception $e) {
+					$mediaName = explode('_', $name, 2);
+					$name = $mediaName[1];
+					$mediaExist = $this->configHelper->mediaFileExists($name);
+				}
+				if (!$mediaExist) {
+					$binary = $this->akeneoClient->getProductMediaFileApi()->download($row[$image]);
+					$this->configHelper->saveMediaFile($name, $binary);
+				}
                 /** @var string $file */
                 $file = $this->configHelper->getMediaFilePath($name);
 
