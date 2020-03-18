@@ -425,19 +425,23 @@ class Attribute extends Import
                 }
 
                 foreach ($attributeSetIds as $attributeSetId) {
-                    if (is_numeric($attributeSetId)) {
-                        $this->eavSetup->addAttributeGroup(
-                            $this->getEntityTypeId(),
-                            $attributeSetId,
-                            ucfirst($row['group'])
-                        );
-                        $this->eavSetup->addAttributeToSet(
-                            $this->getEntityTypeId(),
-                            $attributeSetId,
-                            ucfirst($row['group']),
-                            $row['_entity_id']
-                        );
-                    }
+                    try {
+						if (is_numeric($attributeSetId)) {
+							$this->eavSetup->addAttributeGroup(
+								$this->getEntityTypeId(),
+								$attributeSetId,
+								ucfirst($row['group'])
+							);
+							$this->eavSetup->addAttributeToSet(
+								$this->getEntityTypeId(),
+								$attributeSetId,
+								ucfirst($row['group']),
+								$row['_entity_id']
+							);
+						}
+					}catch(\Exception $e) {
+						// do nothing
+					}
                 }
             }
 
