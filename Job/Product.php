@@ -554,7 +554,7 @@ class Product extends Import
              */
             foreach ($stores as $local => $affected) {
                 if($local=='zh_Hans_CN') {
-					$local=='zh_CN';
+					$local = 'zh_CN';
 				}
 				$columns[] = trim($name) . '-' . $local;
             }
@@ -568,9 +568,9 @@ class Product extends Import
                     }
                 }
 
-                // if (!$connection->tableColumnExists($tmpTable, $column)) {
-                    // continue;
-                // }
+                if (!$connection->tableColumnExists($tmpTable, $column)) {
+                    continue;
+                }
 
                 if (strlen($value) > 0) {
                     $data[$column] = new Expr('"' . $value . '"');
@@ -584,7 +584,7 @@ class Product extends Import
                 }
             }
         }
-
+				
         /** @var Select $configurable */
         $configurable = $connection->select()
             ->from(['e' => $tmpTable], $data)
